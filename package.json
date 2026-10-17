@@ -1,0 +1,32 @@
+{
+  "name": "filter-lab",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Interactive, offline FIR/IIR filter designer for learning DSP through pole-zero placement, frequency responses, and filter comparisons.",
+  "scripts": {
+    "test": "node --test tests/math.test.cjs",
+    "test:browser": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  },
+  "license": "GPL-3.0-only",
+  "author": "koenig-arthur",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/koenig-arthur/filter-lab.git"
+  },
+  "homepage": "https://github.com/koenig-arthur/filter-lab#readme",
+  "bugs": {
+    "url": "https://github.com/koenig-arthur/filter-lab/issues"
+  },
+  "keywords": [
+    "dsp",
+    "signal-processing",
+    "digital-filters",
+    "fir",
+    "iir",
+    "education",
+    "javascript"
+  ]
+}

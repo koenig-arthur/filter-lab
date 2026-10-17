@@ -1,0 +1,154 @@
+<!doctype html>
+<!--
+SPDX-License-Identifier: GPL-3.0-only
+Copyright (C) 2026 koenig-arthur
+
+This file is part of Filter Lab.
+
+Filter Lab is free software: you can redistribute it and/or modify it
+under the terms of the GNU General Public License as published by
+the Free Software Foundation, version 3 of the License only.
+
+Filter Lab is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with Filter Lab. If not, see <https://www.gnu.org/licenses/>.
+-->
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="An offline, interactive lab for understanding and designing digital FIR and IIR filters.">
+  <title>Filter Lab · FIR & IIR</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="dsp.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="index.html" aria-label="Filter Lab home"><span class="brand-icon" aria-hidden="true">∿</span> Filter Lab <span class="course">DIGITAL SIGNAL PROCESSING</span></a>
+    <span class="offline"><span></span> Runs entirely on your device</span>
+  </header>
+  <main>
+    <section class="intro">
+      <div><p class="eyebrow">AN INTERACTIVE DIGITAL FILTER WORKBENCH</p><h1>Make the connection.</h1><p class="lede">Move a pole. Place a zero. See what changes in frequency and time.</p></div>
+      <div class="file-actions"><button id="export" class="button secondary">Export filter</button><button id="import" class="button secondary">Import JSON</button><input id="import-file" type="file" accept=".json,application/json" hidden></div>
+    </section>
+    <section class="toolbar" aria-label="Lab settings">
+      <label class="inline-label">Sampling rate <span class="input-unit"><input id="sample-rate" type="number" min="1" step="any" value="8000"><span>Hz</span></span></label>
+      <span id="nyquist" class="muted">Nyquist 4000 Hz</span>
+      <div class="toolbar-divider"></div>
+      <label class="inline-label">Experiment <select id="preset"><option value="notch">1000 Hz notch</option><option value="moving">3-tap moving average</option><option value="onepole">One-pole low-pass</option><option value="resonator">Resonator</option><option value="delay">Pure delay</option><option value="unstable">Unstable pole</option><option value="identity">Identity / start fresh</option><option value="custom" disabled>Custom filter</option></select></label>
+      <button id="reset-preset" class="text-button">Reset experiment</button>
+    </section>
+    <div id="error" class="notice error" role="alert" hidden></div>
+    <div id="announcement" class="sr-only" role="status" aria-live="polite"></div>
+    <div class="workspace">
+      <aside class="editor card">
+        <div class="editor-heading"><span class="eyebrow">01 / BUILD YOUR FILTER</span><span class="live-tag">LIVE</span></div>
+        <div class="tabs" role="tablist" aria-label="Filter input method">
+          <button id="tab-transfer" role="tab" aria-selected="true" aria-controls="panel-transfer" tabindex="0">H(z)</button>
+          <button id="tab-roots" role="tab" aria-selected="false" aria-controls="panel-roots" tabindex="-1">Poles & zeros</button>
+          <button id="tab-design" role="tab" aria-selected="false" aria-controls="panel-design" tabindex="-1">Design in Hz</button>
+        </div>
+        <section id="panel-transfer" role="tabpanel" aria-labelledby="tab-transfer" class="panel">
+          <h2>Transfer function</h2><p class="help">Enter H(z), or describe the same filter with its coefficients.</p>
+          <form id="formula-form">
+            <label for="expression">H(z) =</label><textarea id="expression" rows="4" spellcheck="false" aria-describedby="expression-help"></textarea>
+            <p id="expression-help" class="hint">Use <code>z^-1</code> for a one-sample delay. Write multiplication with <code>*</code>.</p>
+            <button type="submit" class="button primary full">Apply H(z) <span aria-hidden="true">↗</span></button>
+          </form>
+          <div class="example-buttons"><span class="hint">Try</span><button data-expression="(1+z^-1)/2" class="chip">FIR average</button><button data-expression="0.2/(1-0.8*z^-1)" class="chip">IIR low-pass</button></div>
+          <div class="section-rule"></div>
+          <form id="coeff-form">
+            <h3>Coefficient lists</h3><p class="hint">Ordered as 1, z⁻¹, z⁻², … · a[0] is normalized to 1.</p>
+            <label for="b-coeff">Numerator · b</label><textarea id="b-coeff" rows="2" spellcheck="false"></textarea>
+            <label for="a-coeff">Denominator · a</label><textarea id="a-coeff" rows="2" spellcheck="false"></textarea>
+            <button class="button secondary full" type="submit">Apply coefficients</button>
+          </form>
+          <details class="learn-detail"><summary>What can I type?</summary><p>Real decimal or scientific-notation numbers, z, parentheses, +, −, *, /, and integer powers. Both <code>(z+1)/(z-0.8)</code> and <code>(1+z^-1)/(1-0.8*z^-1)</code> work. Positive powers must combine to a causal filter. Maximum order: 64.</p></details>
+        </section>
+        <section id="panel-roots" role="tabpanel" aria-labelledby="tab-roots" class="panel" hidden>
+          <h2>Place poles & zeros</h2><p class="help">Drag a point in the z-plane or edit its coordinates. Complex points move as conjugate pairs.</p>
+          <button id="reset-filter" type="button" class="button secondary full">Reset filter</button>
+          <p class="hint">Start at H(z) = 1. Keeps sampling rate, saved comparisons and display settings.</p>
+          <div class="two-fields"><label>Zeros <input id="zero-count" type="number" min="0" max="64" step="1"></label><label>Poles <input id="pole-count" type="number" min="0" max="64" step="1"></label></div>
+          <p class="hint">Counts refer to editable factors. Origin markers caused by delays or degree balance are added automatically.</p>
+          <label>Coordinates <select id="coordinates"><option value="cartesian">Real / imaginary</option><option value="polar">Radius / angle (degrees)</option></select></label>
+          <div class="root-heading"><h3><span class="zero-symbol">○</span> Zeros</h3><div><button id="add-zero" class="chip">+ Real</button><button id="add-zero-pair" class="chip">+ Pair</button></div></div>
+          <div id="zero-list" class="root-list"></div>
+          <div class="root-heading"><h3><span class="pole-symbol">×</span> Poles</h3><div><button id="add-pole" class="chip">+ Real</button><button id="add-pole-pair" class="chip">+ Pair</button></div></div>
+          <div id="pole-list" class="root-list"></div>
+          <div class="two-fields"><label>Factor gain <input id="root-gain" type="number" step="any"></label><label>Extra delay (samples)<input id="root-delay" type="number" min="0" max="64" step="1"></label></div>
+          <p id="origin-note" class="hint"></p>
+          <details class="learn-detail"><summary>How are these factors interpreted?</summary><p>H(z) = g z⁻ᵈ ∏(1 − zᵢ z⁻¹) / ∏(1 − pᵢ z⁻¹). A factor at the origin equals 1; it stays editable as a gray diamond but contributes no effective root. Extra origin poles or zeros come from powers of z when this expression is rewritten. Placed positions are preserved directly; roots for coefficient inputs are recovered numerically. At zero gain, placed factors and delay are retained so you can restore the gain. Arrow keys move a focused marker by 0.01; hold Shift for 0.1.</p></details>
+        </section>
+        <section id="panel-design" role="tabpanel" aria-labelledby="tab-design" class="panel" hidden>
+          <h2>Start with a frequency</h2><p class="help">Choose a response shape, then explore the filter that creates it.</p>
+          <label>Design method <select id="design-method"><option value="preset">Standard filter</option><option value="targets">Custom frequency / gain targets</option></select></label>
+          <form id="design-form" novalidate>
+            <div id="standard-design">
+              <div class="two-fields"><label>Family<select id="family"><option value="iir">IIR · biquad</option><option value="fir">FIR · windowed sinc</option></select></label><label>Response<select id="filter-type"><option value="lowpass">Low-pass</option><option value="highpass">High-pass</option><option value="bandpass">Band-pass</option><option value="notch" selected>Notch / band-stop</option></select></label></div>
+              <label><span id="frequency-label">Center frequency (Hz)</span><input id="design-frequency" type="number" value="1000" min="0" step="any"></label>
+              <label id="upper-field" hidden>Upper edge (Hz)<input id="design-upper" type="number" value="1500" min="0" step="any"></label>
+              <label id="q-field">Q · sharpness<input id="design-q" type="number" value="10" min="0.001" max="1000" step="any"></label>
+            </div>
+            <div id="target-design" hidden>
+              <p class="hint">Set a magnitude curve from 0 Hz to Nyquist. The result is an approximate, linear-phase FIR filter.</p>
+              <div class="target-header"><span>Frequency · Hz</span><span>Gain · dB</span><span></span></div>
+              <div id="target-rows"></div><button id="add-target" class="text-button" type="button">+ Add target point</button>
+            </div>
+            <label id="taps-field" hidden>FIR length · taps (odd)<input id="design-taps" type="number" min="3" max="63" step="2" value="63"></label>
+            <p id="design-explanation" class="hint"></p>
+            <button type="submit" class="button primary full">Design filter <span aria-hidden="true">↗</span></button>
+          </form>
+          <div id="target-results" hidden><h3>Target vs achieved</h3><div class="table-scroll"><table><thead><tr><th>Hz</th><th>Target dB</th><th>Actual dB</th></tr></thead><tbody id="target-results-body"></tbody></table></div></div>
+        </section>
+        <div class="experiment-note"><span class="eyebrow">TRY THIS</span><p id="experiment-text"></p></div>
+      </aside>
+      <section class="results" aria-label="Filter analysis">
+        <div class="results-bar"><div><span class="eyebrow">02 / EXPLORE THE RESPONSE</span><h2 id="filter-title">1000 Hz notch</h2></div><div class="badges"><span id="filter-kind" class="badge">IIR · order 2</span><span id="stability" class="badge stable">Stable</span></div></div>
+        <div id="analysis-warning" class="notice warning" hidden></div>
+        <div class="primary-plots">
+          <section class="card plot-card plane-card"><div class="card-heading"><h3>z-plane</h3><span class="plot-caption">UNIT CIRCLE</span></div><svg id="z-plane" viewBox="0 0 400 360" role="group" aria-label="Interactive pole-zero diagram"></svg><div class="plot-legend"><span><b class="zero-symbol">○</b> Zero</span><span><b class="pole-symbol">×</b> Pole</span><span><b class="cursor-symbol">●</b> Frequency</span></div><p id="plane-note" class="plot-footnote"></p></section>
+          <section class="card plot-card magnitude-card">
+            <div class="card-heading"><h3>Magnitude response</h3><div class="segmented" aria-label="Magnitude scale"><button id="scale-db" aria-pressed="true">dB</button><button id="scale-linear" aria-pressed="false">Linear</button></div></div>
+            <svg id="magnitude" viewBox="0 0 640 360" role="img" aria-label="Magnitude response; hover to compare, click to set the reference frequency"></svg>
+            <div class="response-footer"><label class="inline-label">Frequency axis <select id="frequency-units"><option value="hz">Hz</option><option value="normalized">f / fₛ</option></select></label><button id="compare" class="text-button">+ Save comparison (0/5)</button></div>
+            <p id="comparison-note" class="plot-footnote">Hover to compare · Click to set reference.</p>
+            <details id="axes-panel" class="axes-panel">
+              <summary>Axes <span id="axes-summary">Full frequency range · Auto magnitude</span></summary>
+              <form id="axes-form" novalidate>
+                <div class="axes-heading"><h4>Frequency <span id="axis-frequency-unit">(Hz)</span></h4><label class="checkbox-label"><input id="axis-x-auto" type="checkbox" checked> Full range</label></div>
+                <div class="two-fields"><label>Minimum<input id="axis-x-min" type="number" step="any" value="0" aria-label="Frequency axis minimum" disabled></label><label>Maximum<input id="axis-x-max" type="number" step="any" value="4000" aria-label="Frequency axis maximum" disabled></label></div>
+                <div class="axes-heading"><h4>Magnitude <span id="axis-magnitude-unit">(dB)</span></h4><label class="checkbox-label"><input id="axis-y-auto" type="checkbox" checked> Auto scale</label></div>
+                <div class="two-fields"><label>Minimum<input id="axis-y-min" type="number" step="any" value="-60" aria-label="Magnitude axis minimum" disabled></label><label>Maximum<input id="axis-y-max" type="number" step="any" value="12" aria-label="Magnitude axis maximum" disabled></label></div>
+                <p id="axis-nyquist-note" class="hint">Frequency limits stay within Nyquist. Increase the sampling rate to design for higher frequencies.</p>
+                <div class="axes-actions"><button type="submit" class="button secondary">Apply axes</button><button id="reset-axes" type="button" class="text-button">Reset axes</button></div>
+              </form>
+            </details>
+          </section>
+        </div>
+        <section class="cursor-strip" aria-label="Linked frequency cursor"><label for="frequency-cursor">Inspect frequency</label><input id="frequency-cursor" type="range" min="0" max="4000" step="1" value="1000"><span class="input-unit"><input id="cursor-number" type="number" min="0" max="4000" step="any" value="1000" aria-label="Cursor frequency in Hz"><span>Hz</span></span><div class="cursor-readout"><strong id="cursor-gain">−∞ dB</strong><span id="cursor-phase">Phase undefined</span></div></section>
+        <section id="measurements" class="card measurement-card" aria-label="Gain relative to the reference frequency">
+          <div class="card-heading"><h3>Compare attenuation</h3><label class="inline-label">Compare at <span class="input-unit"><input id="compare-frequency" type="number" min="0" max="4000" step="any" value="1000" aria-label="Measurement frequency in Hz"><span>Hz</span></span></label></div>
+          <div class="measurement-context"><span id="measurement-reference"></span><span id="measurement-probe"></span></div>
+          <div class="table-scroll" tabindex="0" role="region" aria-label="Gain comparison table"><table id="measurement-table"><thead><tr><th scope="col">Curve</th><th scope="col">Reference · dB</th><th scope="col">Compare at · dB</th><th scope="col">Δ gain · dB</th><th scope="col">Amplitude ratio</th></tr></thead><tbody id="measurement-rows"></tbody></table></div>
+          <p class="hint measurement-help">Negative Δ gain means more attenuation relative to the reference. −20 dB = 0.1× amplitude. The two gain columns are absolute gains relative to the input.</p>
+          <p id="measurement-mapping" class="hint measurement-help"></p>
+          <div id="saved-comparisons" class="saved-comparisons" hidden><div class="saved-heading"><h4>Saved curves <span id="comparison-count"></span></h4><button id="clear-comparisons" class="text-button">Clear all</button></div><div id="comparison-list"></div></div>
+        </section>
+        <div class="secondary-plots">
+          <section class="card plot-card"><div class="card-heading"><h3>Impulse response</h3><label class="inline-label small">Samples<select id="impulse-count"><option>64</option><option selected>128</option><option>256</option></select></label></div><svg id="impulse" viewBox="0 0 600 260" role="img" aria-label="Impulse response"></svg><p id="impulse-note" class="plot-footnote"></p></section>
+          <section class="card plot-card"><div class="card-heading"><h3>Phase response</h3><span class="plot-caption">UNWRAPPED · RADIANS</span></div><svg id="phase" viewBox="0 0 600 260" role="img" aria-label="Unwrapped phase response"></svg><p class="plot-footnote">Gaps mark zero magnitude or a singular response, where phase is undefined.</p></section>
+        </div>
+        <section class="card math-card"><div class="card-heading"><h3>The filter behind the plots</h3><button id="copy-coefficients" class="text-button">Copy coefficients</button></div><div id="formula-display" class="formula" aria-label="Expanded transfer function"></div><div class="math-grid"><div><p class="eyebrow">DIFFERENCE EQUATION</p><div id="difference-equation" class="math-output" tabindex="0" aria-label="Difference equation; scroll for long filters"></div></div><div><p class="eyebrow">WHAT THIS MEANS</p><p id="filter-explanation" class="help"></p></div></div><details class="coefficient-detail"><summary>Full precision coefficients</summary><pre id="coefficient-output"></pre></details></section>
+      </section>
+    </div>
+    <footer><span>Filter Lab <span class="footer-dot">·</span> Learn through experiments.</span><span>© 2026 koenig-arthur · GPL v3 only · No warranty · <a href="license.html">License</a></span></footer>
+  </main>
+</body>
+</html>
