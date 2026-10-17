@@ -2,6 +2,11 @@
 
 Interactive, offline FIR/IIR filter designer for learning DSP through pole-zero placement, frequency responses, and filter comparisons.
 
+[![Filter Lab showing an IIR low-pass filter with pole-zero, magnitude, impulse, and phase plots](docs/images/filter-lab-preview.png)](docs/filter-lab-preview.pdf)
+
+*Example: designing an IIR low-pass filter and exploring its response.*
+[View the full PDF preview](docs/filter-lab-preview.pdf).
+
 ## Run locally
 
 Open **index.html** directly in a modern browser. All application files are local;
